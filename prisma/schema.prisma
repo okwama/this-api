@@ -1,0 +1,361 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Request {
+  id                  Int                  @id @default(autoincrement())
+  userId              Int                  @map("user_id")
+  userName            String               @map("user_name") @db.VarChar(255)
+  serviceTypeId       Int                  @map("service_type_id")
+  price               Decimal              @db.Decimal(11, 2)
+  pickupLocation      String               @map("pickup_location") @db.VarChar(255)
+  deliveryLocation    String               @map("delivery_location") @db.VarChar(255)
+  pickupDate          DateTime             @map("pickup_date") @db.DateTime(0)
+  description         String?              @db.Text
+  priority            Priority?            @default(medium)
+  status              requests_status?     @default(unscheduled)
+  myStatus            Int?                 @default(0) @map("my_status") @db.TinyInt
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt           DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
+  staff_id            Int?
+  staff_name          String?
+  team_id             Int
+  latitude            Float?
+  longitude           Float?
+  branch_id           Int?
+  sealNumberId        Int?
+  cash_counts         cash_counts[]
+  CrewLocation        CrewLocation[]
+  delivery_completion delivery_completion?
+  branches            branches?            @relation(fields: [branch_id], references: [id])
+  Staff               users                @relation(fields: [userId], references: [id], onUpdate: Restrict, map: "requests_ibfk_1")
+  ServiceType         ServiceType          @relation(fields: [serviceTypeId], references: [id], onUpdate: Restrict, map: "requests_ibfk_2")
+  sealNumber          seals?               @relation(fields: [sealNumberId], references: [id])
+  staff               Staff[]              @relation("RequestToStaff")
+
+  @@index([branch_id], map: "requests_branch_id_fkey")
+  @@index([serviceTypeId], map: "service_type_id")
+  @@index([staff_id], map: "staff_id")
+  @@index([userId], map: "user_id")
+  @@index([sealNumberId], map: "requests_sealNumberId_fkey")
+  @@map("requests")
+}
+
+model ServiceType {
+  id               Int                @id @default(autoincrement())
+  name             String             @db.VarChar(100)
+  description      String?            @db.Text
+  created_at       DateTime           @default(now()) @db.Timestamp(0)
+  updated_at       DateTime           @default(now()) @db.Timestamp(0)
+  requests         Request[]
+  service_charges  service_charges[]
+  service_requests service_requests[]
+
+  @@map("service_types")
+}
+
+model Staff {
+  id                  Int               @id @default(autoincrement())
+  name                String            @db.VarChar(200)
+  phone               String?           @db.VarChar(20)
+  password            String?           @db.VarChar(255)
+  roleId              Int               @default(0) @map("role_id")
+  role                String            @db.VarChar(200)
+  emplNo              String            @unique @map("empl_no") @db.VarChar(100)
+  idNo                Int               @map("id_no")
+  photoUrl            String            @map("photo_url") @db.VarChar(200)
+  status              Int               @default(0)
+  created_at          DateTime?
+  assignedTeamMembers Team_assignment[] @relation("StaffToTeamMembers")
+  assignedTo          Team_assignment[] @relation("TeamMemberToStaff")
+  cash_counts         cash_counts[]
+  CrewLocation        CrewLocation[]
+  sos                 sos[]
+  team_members        team_members[]
+  tokens              Token[]
+  requests            Request[]         @relation("RequestToStaff")
+
+  @@map("staff")
+}
+
+model Team_assignment {
+  id           Int      @id @default(autoincrement())
+  staffId      Int
+  teamMemberId Int
+  assignedAt   DateTime @default(now())
+  staff        Staff    @relation("StaffToTeamMembers", fields: [staffId], references: [id])
+  teamMember   Staff    @relation("TeamMemberToStaff", fields: [teamMemberId], references: [id])
+
+  @@index([staffId], map: "TeamAssignment_staffId_fkey")
+  @@index([teamMemberId], map: "TeamAssignment_teamMemberId_fkey")
+}
+
+model CrewLocation {
+  id         Int      @id @default(autoincrement())
+  requestId  Int      @map("request_id")
+  staffId    Int      @map("staff_id")
+  latitude   Float
+  longitude  Float
+  capturedAt DateTime @default(now()) @map("captured_at")
+  request    Request  @relation(fields: [requestId], references: [id])
+  staff      Staff    @relation(fields: [staffId], references: [id])
+
+  @@index([requestId], map: "crew_location_request_id_idx")
+  @@index([staffId], map: "crew_location_staff_id_idx")
+  @@map("crew_locations")
+}
+
+model users {
+  id         Int        @id @default(autoincrement())
+  username   String     @unique(map: "username") @db.VarChar(50)
+  password   String     @db.VarChar(255)
+  email      String     @unique(map: "email") @db.VarChar(100)
+  role       users_role @default(user)
+  created_at DateTime   @default(now())
+  updated_at DateTime   @default(now())
+  requests   Request[]
+}
+
+model branches {
+  id               Int                @id @default(autoincrement())
+  client_id        Int
+  name             String             @db.VarChar(255)
+  address          String?            @db.Text
+  phone            String?            @db.VarChar(20)
+  email            String?            @db.VarChar(255)
+  contact_person   String?            @db.VarChar(100)
+  created_at       DateTime           @default(now()) @db.Timestamp(0)
+  updated_at       DateTime           @default(now()) @db.Timestamp(0)
+  clients          clients            @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "branches_ibfk_1")
+  requests         Request[]
+  service_requests service_requests[]
+
+  @@index([client_id], map: "client_id")
+}
+
+model cash_counts {
+  id           Int      @id @default(autoincrement())
+  fifties      Int
+  hundreds     Int
+  twoHundreds  Int
+  fiveHundreds Int
+  thousands    Int
+  totalAmount  Int      @default(0)
+  sealNumber   String?
+  imagePath    String?
+  image_url    String?  @db.VarChar(255)
+  staff_id     Int?
+  created_at   DateTime @default(now())
+  request_id   Int?
+  fives        Int
+  ones         Int
+  tens         Int
+  twenties     Int
+  forties      Int
+  requests     Request? @relation(fields: [request_id], references: [id])
+  staff        Staff?   @relation(fields: [staff_id], references: [id])
+
+  @@index([request_id], map: "cash_counts_request_id_fkey")
+  @@index([staff_id], map: "cash_counts_staff_id_fkey")
+}
+
+model clients {
+  id               Int                @id @default(autoincrement())
+  name             String             @db.VarChar(255)
+  account_number   String             @unique(map: "account_number") @db.VarChar(50)
+  email            String             @db.VarChar(255)
+  phone            String?            @db.VarChar(20)
+  address          String?            @db.Text
+  created_at       DateTime           @default(now()) @db.Timestamp(0)
+  updated_at       DateTime           @default(now()) @db.Timestamp(0)
+  branches         branches[]
+  service_charges  service_charges[]
+  service_requests service_requests[]
+}
+
+model notices {
+  id         Int      @id @default(autoincrement())
+  title      String   @db.VarChar(255)
+  content    String   @db.Text
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  created_by Int
+
+  @@map("notices")
+}
+
+model delivery_completion {
+  id                   Int                        @id @default(autoincrement())
+  requestId            Int                        @unique
+  completedById        Int
+  completedByName      String
+  completedAt          DateTime                   @default(now())
+  photoUrl             String?
+  bankDetails          String?                    @db.LongText
+  latitude             Float?
+  longitude            Float?
+  status               delivery_completion_status @default(pending)
+  isVaultOfficer       Boolean                    @default(false)
+  receivingOfficerId   Int?
+  receivingOfficerName String?
+  notes                String?                    @db.Text
+  sealNumberId         Int?
+  requests             Request                    @relation(fields: [requestId], references: [id])
+  sealNumber           seals?                     @relation(fields: [sealNumberId], references: [id])
+
+  @@index([sealNumberId], map: "delivery_completion_sealNumberId_fkey")
+}
+
+model roles {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique(map: "name") @db.VarChar(255)
+  description String?  @db.Text
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+  updated_at  DateTime @default(now()) @db.Timestamp(0)
+}
+
+model service_charges {
+  id              Int         @id @default(autoincrement())
+  client_id       Int
+  service_type_id Int
+  price           Decimal     @db.Decimal(10, 2)
+  created_at      DateTime    @default(now()) @db.Timestamp(0)
+  updated_at      DateTime    @default(now()) @db.Timestamp(0)
+  clients         clients     @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "service_charges_ibfk_1")
+  service_types   ServiceType @relation(fields: [service_type_id], references: [id], onUpdate: Restrict, map: "service_charges_ibfk_2")
+
+  @@index([client_id], map: "client_id")
+  @@index([service_type_id], map: "service_type_id")
+}
+
+model service_requests {
+  id               Int                     @id @default(autoincrement())
+  client_id        Int
+  branch_id        Int
+  service_type_id  Int
+  pickup_location  String                  @db.Text
+  dropoff_location String                  @db.Text
+  pickup_date      DateTime                @db.Date
+  pickup_time      DateTime                @db.Time(0)
+  status           service_requests_status @default(pending)
+  created_at       DateTime                @default(now()) @db.Timestamp(0)
+  updated_at       DateTime                @default(now()) @db.Timestamp(0)
+  clients          clients                 @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "service_requests_ibfk_1")
+  branches         branches                @relation(fields: [branch_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "service_requests_ibfk_2")
+  service_types    ServiceType             @relation(fields: [service_type_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "service_requests_ibfk_3")
+
+  @@index([branch_id], map: "branch_id")
+  @@index([client_id], map: "client_id")
+  @@index([service_type_id], map: "service_type_id")
+}
+
+model team_members {
+  team_id    Int
+  staff_id   Int
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  teams      teams    @relation(fields: [team_id], references: [id], onUpdate: Restrict, map: "team_members_ibfk_1")
+  staff      Staff    @relation(fields: [staff_id], references: [id], onUpdate: Restrict, map: "team_members_ibfk_2")
+
+  @@id([team_id, staff_id])
+  @@index([staff_id], map: "staff_id")
+}
+
+model teams {
+  id           Int            @id @default(autoincrement())
+  name         String         @db.VarChar(255)
+  created_at   DateTime       @default(now()) @db.Timestamp(0)
+  team_members team_members[]
+}
+
+model sos {
+  id         Int      @id @default(autoincrement())
+  guard_id   Int      @map("staff_id")
+  sos_type   String   @default("sos")
+  latitude   Float
+  longitude  Float
+  status     String   @default("active")
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  guard_name String   @db.VarChar(255)
+  staff      Staff    @relation(fields: [guard_id], references: [id])
+
+  @@index([guard_id], map: "sos_staff_id_fkey")
+  @@map("sos")
+}
+
+model seals {
+  id                  Int                   @id @default(autoincrement())
+  seal_number         String                @unique @db.VarChar(255)
+  created_at          DateTime              @default(now()) @db.Timestamp(0)
+  updated_at          DateTime              @default(now()) @db.Timestamp(0)
+  confirmed           Boolean               @default(false)
+  confirmed_at        DateTime              @default(dbgenerated("('0000-00-00 00:00:00')")) @db.Timestamp(0)
+  confirmed_by_id     Int
+  status              seals_status          @default(assigned)
+  delivery_completion delivery_completion[]
+  requests            Request[]
+}
+
+model Token {
+  id           Int      @id @default(autoincrement())
+  staffId      Int      @map("staff_id")
+  accessToken  String   @map("access_token") @db.Text
+  refreshToken String   @map("refresh_token") @db.VarChar(255)
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+  isValid      Boolean  @default(true) @map("is_valid")
+  lastUsedAt   DateTime @default(now()) @map("last_used_at")
+  deviceInfo   String?  @map("device_info") @db.Text
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  staff        Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId], map: "token_staff_id_fkey")
+  @@index([refreshToken], map: "token_refresh_token_idx")
+  @@map("tokens")
+}
+
+enum Priority {
+  low
+  medium
+  high
+}
+
+enum users_role {
+  admin
+  user
+}
+
+enum service_requests_status {
+  unassigned
+  pending
+  in_progress
+  completed
+  cancelled
+}
+
+enum delivery_completion_status {
+  pending
+  in_progress
+  completed
+  cancelled
+}
+
+enum seals_status {
+  broken
+  assigned
+  re_assigned
+}
+
+enum requests_status {
+  unscheduled
+  pending
+  in_progress
+  completed
+  cancelled
+}
