@@ -79,6 +79,7 @@ model Staff {
   team_members        team_members[]
   tokens              Token[]
   requests            Request[]         @relation("RequestToStaff")
+  atm_counters        atm_counters[]    @relation(map: "atm_counters_ibfk_1")
 
   @@map("staff")
 }
@@ -176,6 +177,8 @@ model clients {
   branches         branches[]
   service_charges  service_charges[]
   service_requests service_requests[]
+
+  atm_counters atm_counters[] @relation(map: "atm_counters_ibfk_1")
 }
 
 model notices {
@@ -299,6 +302,18 @@ model seals {
   status              seals_status          @default(assigned)
   delivery_completion delivery_completion[]
   requests            Request[]
+}
+
+model atm_counters {
+  id                Int      @id @default(autoincrement())
+  atm_id            Int      @unique
+  client_id         Int      @map("client_id")
+  clients           clients  @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "atm_counters_ibfk_1")
+  counter_number    String   @map("counter_number") @db.VarChar(50)
+  date              DateTime @default(now()) @db.DateTime(0)
+  team_id           Int      @map("team_id")
+  crew_commander_id Int?     @map("crew_commander_id")
+  staff             Staff?   @relation(fields: [crew_commander_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
 }
 
 model Token {
